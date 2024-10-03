@@ -103,7 +103,7 @@ tasks.withType(JavaCompile) {
 
 spotless {
     kotlin {
-        ktfmt().kotlinlangStyle()
+        ktfmt().googleStyle()
     }
 }
 repositories {
