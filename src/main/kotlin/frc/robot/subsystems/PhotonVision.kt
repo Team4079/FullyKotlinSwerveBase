@@ -16,7 +16,7 @@ import org.photonvision.PhotonPoseEstimator.PoseStrategy
 import org.photonvision.PhotonUtils
 import org.photonvision.targeting.PhotonPipelineResult
 import org.photonvision.targeting.PhotonTrackedTarget
-import java.util.*
+import kotlin.jvm.optionals.getOrNull
 
 /** The PhotonVision subsystem handles vision processing using PhotonVision cameras. */
 @Suppress("unused", "MemberVisibilityCanBePrivate")
@@ -160,28 +160,20 @@ class PhotonVision : SubsystemBase() {
    * @param cameraAngle The angle of the camera.
    * @return The calculated range to the target.
    */
-  private fun calculateRange(
-    tag: PhotonTrackedTarget,
-    cameraHeight: Double,
-    cameraAngle: Double,
-  ): Double {
-    return PhotonUtils.calculateDistanceToTargetMeters(
+  private fun calculateRange(tag: PhotonTrackedTarget, cameraHeight: Double, cameraAngle: Double) =
+    PhotonUtils.calculateDistanceToTargetMeters(
       cameraHeight,
       1.435, // From 2024 game manual for ID 7 | IMPORTANT TO CHANGE
       cameraAngle, // Rotation about Y = Pitch | UP IS POSITIVE
       Units.degreesToRadians(tag.pitch),
     )
-  }
 
   /**
    * Gets the estimated global pose of the robot.
    *
    * @param prevEstimatedRobotPose The previous estimated pose of the robot.
-   * @return An Optional containing the estimated robot pose, or empty if no pose could be
-   *   estimated.
+   * @return The estimated robot pose, or null if no pose could be estimated.
    */
-  fun getEstimatedGlobalPose(prevEstimatedRobotPose: Pose2d?): Optional<EstimatedRobotPose?>? {
-    photonPoseEstimator.setReferencePose(prevEstimatedRobotPose)
-    return photonPoseEstimator.update()
-  }
+  fun getEstimatedGlobalPose(prevEstimatedRobotPose: Pose2d?): EstimatedRobotPose? =
+    photonPoseEstimator.also { it.setReferencePose(prevEstimatedRobotPose) }.update().getOrNull()
 }
