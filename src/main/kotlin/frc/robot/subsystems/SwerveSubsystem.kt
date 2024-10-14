@@ -18,134 +18,151 @@ import frc.robot.utils.GlobalsValues.MotorGlobalValues
 import frc.robot.utils.GlobalsValues.SwerveGlobalValues
 import frc.robot.utils.GlobalsValues.SwerveGlobalValues.BasePIDGlobal.pathFollower
 import frc.robot.utils.GlobalsValues.SwerveGlobalValues.kinematics
-import java.util.Arrays
-import java.util.function.BooleanSupplier
-import java.util.function.Consumer
-import java.util.function.Supplier
 
-/** The [SwerveSubsystem] class includes all the motors to drive the robot. */
+/**
+ * The SwerveSubsystem class represents the swerve drive subsystem of the robot.
+ *
+ * @param photonvision An optional PhotonVision instance for vision processing.
+ */
+@Suppress("MemberVisibilityCanBePrivate", "unused", "kotlin:S6619")
 class SwerveSubsystem(photonvision: PhotonVision?) : SubsystemBase() {
-  /** Pose estimator for the swerve drive. */
-  private val poseEstimator: SwerveDrivePoseEstimator? = null // TODO: Set the pose estimator
+  /** Pose estimator for the swerve drive */
+  private val poseEstimator: SwerveDrivePoseEstimator? = null // TODO: Implement this
 
-  /** Field representation for the robot. */
-  private val field: Field2d?
+  /** Field representation for the SmartDashboard */
+  private val field: Field2d = Field2d()
 
-  /** Pigeon2 IMU for orientation. */
-  private val pidgey: Pigeon2
+  /** Pigeon2 gyroscope for the swerve drive */
+  private val pidgey: Pigeon2 = Pigeon2(MotorGlobalValues.PIDGEY_ID)
 
-  /** Array of swerve module states. */
+  /** Array of swerve module states */
   private val states: Array<SwerveModuleState?>
 
-  /** Array of swerve modules. */
-  private val modules: Array<SwerveModule>
+  /** Array of swerve modules */
+  private val modules: Array<SwerveModule> =
+    arrayOf(
+      SwerveModule(
+        MotorGlobalValues.FRONT_LEFT_DRIVE_ID,
+        MotorGlobalValues.FRONT_LEFT_STEER_ID,
+        MotorGlobalValues.FRONT_LEFT_CAN_CODER_ID,
+        SwerveGlobalValues.CANCODER_VALUE9,
+      ),
+      SwerveModule(
+        MotorGlobalValues.FRONT_RIGHT_DRIVE_ID,
+        MotorGlobalValues.FRONT_RIGHT_STEER_ID,
+        MotorGlobalValues.FRONT_RIGHT_CAN_CODER_ID,
+        SwerveGlobalValues.CANCODER_VALUE10,
+      ),
+      SwerveModule(
+        MotorGlobalValues.BACK_LEFT_DRIVE_ID,
+        MotorGlobalValues.BACK_LEFT_STEER_ID,
+        MotorGlobalValues.BACK_LEFT_CAN_CODER_ID,
+        SwerveGlobalValues.CANCODER_VALUE11,
+      ),
+      SwerveModule(
+        MotorGlobalValues.BACK_RIGHT_DRIVE_ID,
+        MotorGlobalValues.BACK_RIGHT_STEER_ID,
+        MotorGlobalValues.BACK_RIGHT_CAN_CODER_ID,
+        SwerveGlobalValues.CANCODER_VALUE12,
+      ),
+    )
 
-  /** Photonvision instance for vision processing. */
+  /** Optional PhotonVision instance */
   private val photonvision: PhotonVision?
 
-  /** Rotation value for the robot. */
+  /** Rotation value */
   private var rot = 0.0
 
-  /** Flag to determine if the robot should invert its controls. */
+  /** Flag to determine if the drive should be inverted */
   private val shouldInvert = false
 
-  /** Creates a new DriveTrain. */
+  /** Array of swerve module positions */
+  val modulePositions: Array<SwerveModulePosition?>
+    get() {
+      val positions = arrayOfNulls<SwerveModulePosition>(states.size)
+      for (i in modules.indices) {
+        positions[i] = modules[i].position
+      }
+      return positions
+    }
+
+  /** Array of swerve module states */
+  var moduleStates: Array<SwerveModuleState?>
+    get() {
+      val moduleStates = arrayOfNulls<SwerveModuleState>(modules.size)
+      for (i in modules.indices) {
+        moduleStates[i] = modules[i].state
+      }
+      return moduleStates
+    }
+    set(states) {
+      for (i in states.indices) {
+        modules[i].state = states[i]!!
+      }
+    }
+
+  /** Rotation of the Pigeon2 gyroscope */
+  val pidgeyRotation: Rotation2d
+    get() = pidgey.rotation2d
+
+  /**
+   * Gets the heading of the robot.
+   *
+   * @return The heading in degrees.
+   */
+  fun getHeading(): Double {
+    return pidgey.angle
+  }
+
+  /** Current pose of the robot */
+  val pose: Pose2d?
+    get() = poseEstimator!!.estimatedPosition
+
+  /** Chassis speeds for autonomous driving */
+  val autoSpeeds: ChassisSpeeds?
+    get() {
+      val speeds = kinematics.toChassisSpeeds(*moduleStates)
+      return speeds
+    }
+
+  /** Rotation of the Pigeon2 gyroscope for PID control */
+  val rotationPidggy: Rotation2d
+    get() {
+      rot = -pidgey.rotation2d.degrees
+      return Rotation2d.fromDegrees(rot)
+    }
+
   init {
-    modules =
-      arrayOf<SwerveModule>(
-        SwerveModule(
-          MotorGlobalValues.FRONT_LEFT_DRIVE_ID,
-          MotorGlobalValues.FRONT_LEFT_STEER_ID,
-          MotorGlobalValues.FRONT_LEFT_CAN_CODER_ID,
-          SwerveGlobalValues.CANCODER_VALUE9,
-        ),
-        SwerveModule(
-          MotorGlobalValues.FRONT_RIGHT_DRIVE_ID,
-          MotorGlobalValues.FRONT_RIGHT_STEER_ID,
-          MotorGlobalValues.FRONT_RIGHT_CAN_CODER_ID,
-          SwerveGlobalValues.CANCODER_VALUE10,
-        ),
-        SwerveModule(
-          MotorGlobalValues.BACK_LEFT_DRIVE_ID,
-          MotorGlobalValues.BACK_LEFT_STEER_ID,
-          MotorGlobalValues.BACK_LEFT_CAN_CODER_ID,
-          SwerveGlobalValues.CANCODER_VALUE11,
-        ),
-        SwerveModule(
-          MotorGlobalValues.BACK_RIGHT_DRIVE_ID,
-          MotorGlobalValues.BACK_RIGHT_STEER_ID,
-          MotorGlobalValues.BACK_RIGHT_CAN_CODER_ID,
-          SwerveGlobalValues.CANCODER_VALUE12,
-        ),
-      )
-
-    field = Field2d()
-
-    pidgey = Pigeon2(MotorGlobalValues.PIDGEY_ID)
     pidgey.reset()
-    states = arrayOfNulls<SwerveModuleState>(4)
+    states = arrayOfNulls(moduleStates.size)
     this.photonvision = photonvision
 
     AutoBuilder.configureHolonomic(
-      Supplier { this.getPose() }, // Robot pose supplier
-      Consumer { pose: Pose2d?
-        -> // Method to reset odometry (will be called if your auto has a starting pose)
-        this.newPose(pose)
-      },
-      Supplier { this.getAutoSpeeds() }, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-      Consumer { chassisSpeeds: ChassisSpeeds?
-        -> // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-        this.chassisSpeedsDrive(chassisSpeeds!!)
-      },
+      { this.pose },
+      { pose: Pose2d? -> this.newPose(pose) },
+      { this.autoSpeeds },
+      { chassisSpeeds: ChassisSpeeds? -> this.chassisSpeedsDrive(chassisSpeeds!!) },
       pathFollower,
-      BooleanSupplier {
+      {
         val alliance = DriverStation.getAlliance()
         if (alliance.isPresent) {
-          if (shouldInvert) {
-            alliance.get() == Alliance.Red
-          } else {
-            alliance.get() != Alliance.Blue
-          }
+          (shouldInvert && alliance.get() == Alliance.Red) ||
+            (!shouldInvert && alliance.get() != Alliance.Blue)
+        } else {
+          false
         }
-        false
       },
-      this, // Reference to this subsystem
+      this,
     )
   }
 
   /**
-   * Sets the desired module states.
+   * Sets the drive speeds for the swerve modules.
    *
-   * @param states SwerveModuleState[]
-   * @return void
-   */
-  fun setModuleStates(states: Array<SwerveModuleState?>) {
-    for (i in states.indices) {
-      modules[i].setState(states[i]!!)
-    }
-  }
-
-  /**
-   * Gets the module states.
-   *
-   * @param states SwerveModuleState[]
-   * @return SwerveModuleState[]
-   */
-  fun getModuleStates(states: Array<SwerveModuleState?>): Array<SwerveModuleState?> {
-    for (i in states.indices) {
-      states[i] = modules[i].getState()
-    }
-    return states
-  }
-
-  /**
-   * Gets the module positions.
-   *
-   * @param forwardSpeed double
-   * @param leftSpeed double
-   * @param turnSpeed double
-   * @param isFieldOriented boolean
-   * @return SwerveModulePosition[]
+   * @param forwardSpeed The forward speed.
+   * @param leftSpeed The left speed.
+   * @param turnSpeed The turn speed.
+   * @param isFieldOriented Whether the drive is field-oriented.
    */
   fun getDriveSpeeds(
     forwardSpeed: Double,
@@ -153,146 +170,52 @@ class SwerveSubsystem(photonvision: PhotonVision?) : SubsystemBase() {
     turnSpeed: Double,
     isFieldOriented: Boolean,
   ) {
-    var turnSpeed = turnSpeed
+    var turnSpeed1 = turnSpeed
 
     SmartDashboard.putNumber("Forward speed", forwardSpeed)
     SmartDashboard.putNumber("Left speed", leftSpeed)
 
-    turnSpeed = turnSpeed * MotorGlobalValues.TURN_CONSTANT
+    turnSpeed1 *= MotorGlobalValues.TURN_CONSTANT
 
-    var speeds =
+    val speeds =
       if (isFieldOriented) {
-        ChassisSpeeds.fromFieldRelativeSpeeds(
-          forwardSpeed,
-          leftSpeed,
-          turnSpeed,
-          getPidgeyRotation(),
-        )
+        ChassisSpeeds.fromFieldRelativeSpeeds(forwardSpeed, leftSpeed, turnSpeed1, pidgeyRotation)
       } else {
-        ChassisSpeeds(forwardSpeed, leftSpeed, turnSpeed)
+        ChassisSpeeds(forwardSpeed, leftSpeed, turnSpeed1)
       }
 
     val states = kinematics.toSwerveModuleStates(speeds)
     SwerveDriveKinematics.desaturateWheelSpeeds(states, MotorGlobalValues.MAX_SPEED)
-    setModuleStates(states)
+    moduleStates = states
   }
 
-  /**
-   * Gets the pidgey rotation.
-   *
-   * @return Rotation2d
-   */
-  fun getPidgeyRotation(): Rotation2d? {
-    return pidgey.rotation2d
-  }
-
-  /**
-   * Gets the pidgey angle.
-   *
-   * @return double
-   */
-  fun getHeading(): Double {
-    return pidgey.angle
-  }
-
-  /**
-   * Gets the pose.
-   *
-   * @return Pose2d
-   */
-  fun getPose(): Pose2d? {
-    return poseEstimator!!.estimatedPosition
-  }
-
-  /**
-   * Zeros the pose.
-   *
-   * @return void
-   */
+  /** Resets the pose of the robot to zero. */
   fun zeroPose() {
     poseEstimator!!.resetPosition(
       Rotation2d.fromDegrees(getHeading()),
-      getModulePositions(),
+      modulePositions,
       Pose2d(0.0, 0.0, Rotation2d.fromDegrees(0.0)),
     )
   }
 
   /**
-   * Resets the pose.
+   * Sets a new pose for the robot.
    *
-   * @param pose Pose2d
-   * @return void
+   * @param pose The new pose.
    */
   fun newPose(pose: Pose2d?) {
-    poseEstimator!!.resetPosition(pidgey.rotation2d, getModulePositions(), pose)
+    poseEstimator!!.resetPosition(pidgey.rotation2d, modulePositions, pose)
   }
 
   /**
-   * Sets the field.
+   * Drives the robot using chassis speeds.
    *
-   * @return void
-   */
-  fun getAutoSpeeds(): ChassisSpeeds? {
-    val speeds = kinematics.toChassisSpeeds(*getModuleStates())
-    return speeds
-  }
-
-  // TODO: Look at this code later
-  /**
-   * Gets the rotation pidggy.
-   *
-   * @return Rotation2d
-   */
-  fun getRotationPidggy(): Rotation2d {
-    rot = -pidgey.rotation2d.degrees
-    return Rotation2d.fromDegrees(rot)
-  }
-
-  /**
-   * Drives the robot using the chassis speeds.
-   *
-   * @param chassisSpeeds ChassisSpeeds
-   * @return void
+   * @param chassisSpeeds The chassis speeds.
    */
   fun chassisSpeedsDrive(chassisSpeeds: ChassisSpeeds) {
-    val speeds = ChassisSpeeds.fromRobotRelativeSpeeds(chassisSpeeds, getRotationPidggy())
+    val speeds = ChassisSpeeds.fromRobotRelativeSpeeds(chassisSpeeds, rotationPidggy)
     val states = kinematics.toSwerveModuleStates(speeds)
     SwerveDriveKinematics.desaturateWheelSpeeds(states, MotorGlobalValues.MAX_SPEED)
-    setModuleStates(states)
-  }
-
-  /**
-   * Gets the field.
-   *
-   * @return Field2d
-   */
-  private fun getModuleStates(): Array<SwerveModuleState?> {
-    val moduleStates = arrayOfNulls<SwerveModuleState>(modules.size)
-    for (i in modules.indices) {
-      moduleStates[i] = modules[i].getState()
-    }
-    return moduleStates
-  }
-
-  /** Prints the module states */
-  private fun printModuleStates() {
-    Arrays.stream<SwerveModule?>(modules).forEach { module: SwerveModule? ->
-      println(module!!.getState())
-    }
-  }
-
-  /**
-   * Gets the module positions.
-   *
-   * @return SwerveModulePosition[]
-   */
-  fun getModulePositions(): Array<SwerveModulePosition?> {
-    val positions = arrayOfNulls<SwerveModulePosition>(states.size)
-
-    for (i in modules.indices) {
-      positions[i] = modules[i].getPosition()
-    }
-
-    return positions
+    moduleStates = states
   }
 }

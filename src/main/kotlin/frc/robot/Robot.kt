@@ -22,32 +22,17 @@ class Robot : TimedRobot() {
     robotContainer = RobotContainer()
   }
 
-  override fun robotPeriodic() {
-    // Runs the Scheduler.  This is responsible for polling buttons, adding newly-scheduled
-    // commands, running already-scheduled commands, removing finished or interrupted commands,
-    // and running subsystem periodic() methods.  This must be called from the robot's periodic
-    // block in order for anything in the Command-based framework to work.
-    CommandScheduler.getInstance().run()
-  }
+  override fun robotPeriodic() = CommandScheduler.getInstance().run()
 
   override fun autonomousInit() {
-    // Retrieve the autonomous command from the RobotContainer
-    autonomousCommand = robotContainer!!.getAutonomousCommand()
-
-    // Schedule the autonomous command if it is not null
-    if (autonomousCommand != null) {
-      autonomousCommand!!.schedule()
-    }
+    autonomousCommand = robotContainer!!.getAutonomousCommand().also { it.schedule() }
   }
 
   override fun teleopInit() {
-    // Cancel the autonomous command if it is running
     if (autonomousCommand != null) {
       autonomousCommand!!.cancel()
     }
   }
 
-  override fun testInit() {
-    CommandScheduler.getInstance().cancelAll()
-  }
+  override fun testInit() = CommandScheduler.getInstance().cancelAll()
 }

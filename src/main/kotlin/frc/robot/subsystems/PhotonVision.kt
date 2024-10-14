@@ -9,7 +9,6 @@ import edu.wpi.first.math.geometry.Translation3d
 import edu.wpi.first.math.util.Units
 import edu.wpi.first.wpilibj2.command.SubsystemBase
 import frc.robot.utils.GlobalsValues
-import java.util.Optional
 import org.photonvision.EstimatedRobotPose
 import org.photonvision.PhotonCamera
 import org.photonvision.PhotonPoseEstimator
@@ -17,47 +16,65 @@ import org.photonvision.PhotonPoseEstimator.PoseStrategy
 import org.photonvision.PhotonUtils
 import org.photonvision.targeting.PhotonPipelineResult
 import org.photonvision.targeting.PhotonTrackedTarget
+import java.util.*
 
 /** The PhotonVision subsystem handles vision processing using PhotonVision cameras. */
-@Suppress("unused")
+@Suppress("unused", "MemberVisibilityCanBePrivate")
 class PhotonVision : SubsystemBase() {
-  // PhotonVision cameras
+  /** PhotonVision camera 1 */
   var camera1: PhotonCamera = PhotonCamera("Camera One")
+
+  /** PhotonVision camera 2 */
   var camera2: PhotonCamera = PhotonCamera("Camera Two")
 
-  // Tracked targets from the cameras
+  /** Tracked target from camera 1 */
   var target1: PhotonTrackedTarget? = null // TODO: Use this and the below to track targets
+
+  /** Tracked target from camera 2 */
   var target2: PhotonTrackedTarget? = null
 
-  // Pose estimator for determining the robot's position on the field
+  /** Pose estimator for determining the robot's position on the field */
   var photonPoseEstimator: PhotonPoseEstimator
 
-  // AprilTag field layout for the 2024 Crescendo field
+  /** AprilTag field layout for the 2024 Crescendo field */
   var aprilTagFieldLayout: AprilTagFieldLayout? =
     AprilTagFields.k2024Crescendo.loadAprilTagLayoutField()
 
-  // Transformation from the robot to the camera
+  /** Transformation from the robot to the camera */
   var robotToCam: Transform3d =
     Transform3d(
       Translation3d(0.5, 0.0, 0.5),
       Rotation3d(0.0, 0.0, 0.0),
-    ) // Cam mounted facing forward, half a meter forward of center, half a meter up from
-  // center.
+    ) // Cam mounted facing forward, half a meter forward of center, half a meter up from center.
 
-  // Variables to store target visibility and pose information for camera 1
+  /** Target visibility for camera 1 */
   var targetVisible1: Boolean = false
+
+  /** Target yaw for camera 1 */
   var targetYaw1: Double = 0.0
+
+  /** Target pose ambiguity for camera 1 */
   var targetPoseAmbiguity1: Double = 0.0
+
+  /** Range to target for camera 1 */
   var range1: Double = 0.0
 
-  // Variables to store target visibility and pose information for camera 2
+  /** Target visibility for camera 2 */
   var targetVisible2: Boolean = false
+
+  /** Target yaw for camera 2 */
   var targetYaw2: Double = 0.0
+
+  /** Target pose ambiguity for camera 2 */
   var targetPoseAmbiguity2: Double = 0.0
+
+  /** Range to target for camera 2 */
   var range2: Double = 0.0
 
-  // Variables to store the selected target's yaw and range
+  /** Selected target's yaw */
   var targetYaw: Double = 0.0
+
+  /** Range to the selected target */
   var rangeToTarget: Double = 0.0
 
   /** Constructs a new PhotonVision subsystem. */

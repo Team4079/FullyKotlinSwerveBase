@@ -2,7 +2,6 @@
 
 package frc.robot.utils
 
-import edu.wpi.first.wpilibj.GenericHID.RumbleType
 import edu.wpi.first.wpilibj.Joystick
 import edu.wpi.first.wpilibj.XboxController
 
@@ -192,7 +191,7 @@ class LogitechGamingPad(usbPort: Int) : XboxController(usbPort) {
    * @param index The index of the D-Pad direction (0-7).
    * @return True if the D-Pad is pressed in the specified direction, false otherwise.
    */
-  fun checkDPad(index: Int) = (0 <= index && index <= 7) && (index * 45) == gamepad.pov
+  fun checkDPad(index: Int) = (index in 0..7) && (index * 45) == gamepad.pov
 
   /**
    * Checks if the D-Pad is pressed at a specific angle.
@@ -202,9 +201,9 @@ class LogitechGamingPad(usbPort: Int) : XboxController(usbPort) {
    * @return True if the D-Pad is pressed at the specified angle, false otherwise.
    */
   fun checkDPad(angle: Double, inDegrees: Boolean): Boolean {
-    var angle = angle
-    if (!inDegrees) angle = Math.toDegrees(angle)
-    return angle.toInt() == gamepad.pov
+    var angle1 = angle
+    if (!inDegrees) angle1 = Math.toDegrees(angle1)
+    return angle1.toInt() == gamepad.pov
   }
 
   /**

@@ -1,8 +1,7 @@
-@file:Suppress("unused")
-
 package frc.robot.utils
 
 /** A class representing a PID controller. */
+@Suppress("unused", "MemberVisibilityCanBePrivate")
 class PID {
   var p: Double
   var i: Double
@@ -104,11 +103,11 @@ class PID {
     this.s = -1
   }
 
-  var previousError: Double = 0.0
-  var integral: Double = 0.0
+  private var previousError: Double = 0.0
+  private var integral: Double = 0.0
   var setpoint: Double = 0.0
-  var error: Double = 0.0
-  private var output = 0.0
+  private var error: Double = 0.0
+  var output = 0.0
 
   /**
    * Calculates the output of the PID controller.
@@ -124,15 +123,6 @@ class PID {
     val derivative = (error - this.previousError) / .02
     this.output = p * error + i * this.integral + d * derivative
     this.previousError = error
-    return output
-  }
-
-  /**
-   * Gets the current output of the PID controller.
-   *
-   * @return The current output.
-   */
-  fun getOutput(): Double {
     return output
   }
 
