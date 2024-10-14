@@ -9,7 +9,6 @@ import edu.wpi.first.math.geometry.Translation3d
 import edu.wpi.first.math.util.Units
 import edu.wpi.first.wpilibj2.command.SubsystemBase
 import frc.robot.utils.GlobalsValues
-import java.util.Optional
 import org.photonvision.EstimatedRobotPose
 import org.photonvision.PhotonCamera
 import org.photonvision.PhotonPoseEstimator
@@ -17,9 +16,10 @@ import org.photonvision.PhotonPoseEstimator.PoseStrategy
 import org.photonvision.PhotonUtils
 import org.photonvision.targeting.PhotonPipelineResult
 import org.photonvision.targeting.PhotonTrackedTarget
+import java.util.*
 
 /** The PhotonVision subsystem handles vision processing using PhotonVision cameras. */
-@Suppress("unused")
+@Suppress("unused", "MemberVisibilityCanBePrivate")
 class PhotonVision : SubsystemBase() {
   // PhotonVision cameras
   var camera1: PhotonCamera = PhotonCamera("Camera One")
@@ -41,8 +41,7 @@ class PhotonVision : SubsystemBase() {
     Transform3d(
       Translation3d(0.5, 0.0, 0.5),
       Rotation3d(0.0, 0.0, 0.0),
-    ) // Cam mounted facing forward, half a meter forward of center, half a meter up from
-  // center.
+    ) // Cam mounted facing forward, half a meter forward of center, half a meter up from center.
 
   // Variables to store target visibility and pose information for camera 1
   var targetVisible1: Boolean = false

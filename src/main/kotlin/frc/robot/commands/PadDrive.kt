@@ -1,10 +1,10 @@
 package frc.robot.commands
 
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard
 import edu.wpi.first.wpilibj2.command.Command
 import frc.robot.subsystems.SwerveSubsystem
 import frc.robot.utils.GlobalsValues
 import frc.robot.utils.LogitechGamingPad
+import frc.robot.utils.dashNumbers
 
 /**
  * A command to drive the robot using a Logitech gaming pad.
@@ -33,8 +33,7 @@ class PadDrive(
     val x = -pad.getLeftAnalogXAxis() * GlobalsValues.MotorGlobalValues.MAX_SPEED
     val rotation = pad.getRightAnalogXAxis() * GlobalsValues.MotorGlobalValues.MAX_ANGULAR_SPEED
 
-    SmartDashboard.putNumber("Y Joystick", y)
-    SmartDashboard.putNumber("X Joystick", x)
+    dashNumbers("Y Joystick" to y, "X Joystick" to x, "Rotation Joystick" to rotation)
 
     swerveSubsystem.getDriveSpeeds(y, x, rotation, isFieldOriented)
   }

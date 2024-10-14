@@ -3,9 +3,13 @@
 // the WPILib BSD license file in the root directory of this project.
 package frc.robot
 
-import edu.wpi.first.wpilibj2.command.Command
+import com.pathplanner.lib.commands.PathPlannerAuto
 import edu.wpi.first.wpilibj2.command.button.JoystickButton
+import frc.robot.commands.PadDrive
+import frc.robot.subsystems.PhotonVision
+import frc.robot.subsystems.SwerveSubsystem
 import frc.robot.utils.GlobalsValues.SwerveGlobalValues
+import frc.robot.utils.LogitechGamingPad
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -14,8 +18,8 @@ import frc.robot.utils.GlobalsValues.SwerveGlobalValues
  * subsystems, commands, and trigger mappings) should be declared here.
  */
 class RobotContainer {
-  private val swerveSubsystem: frc.robot.subsystems.SwerveSubsystem
-  private val photonvision: frc.robot.subsystems.PhotonVision
+  private val swerveSubsystem: SwerveSubsystem
+  private val photonvision: PhotonVision
 
   private val padA: JoystickButton
   private val padB: JoystickButton
@@ -24,16 +28,17 @@ class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   init {
-    frc.robot.utils.LogitechGamingPad(0).apply {
+    LogitechGamingPad(0).apply {
       padA = JoystickButton(this, 1)
       padB = JoystickButton(this, 2)
       padX = JoystickButton(this, 3)
       padY = JoystickButton(this, 4)
 
-      photonvision = frc.robot.subsystems.PhotonVision()
-      swerveSubsystem = frc.robot.subsystems.SwerveSubsystem(photonvision)
-      swerveSubsystem.defaultCommand =
-        frc.robot.commands.PadDrive(swerveSubsystem, this, SwerveGlobalValues.IS_FIELD_ORIENTATED)
+      photonvision = PhotonVision()
+      swerveSubsystem =
+        SwerveSubsystem(photonvision).also {
+          it.defaultCommand = PadDrive(it, this, SwerveGlobalValues.IS_FIELD_ORIENTATED)
+        }
     }
 
     configureBindings()
@@ -60,7 +65,5 @@ class RobotContainer {
    *
    * @return the command to run in autonomous
    */
-  fun getAutonomousCommand(): Command {
-    return com.pathplanner.lib.commands.PathPlannerAuto("Straight Auto")
-  }
+  fun getAutonomousCommand() = PathPlannerAuto("Straight Auto")
 }

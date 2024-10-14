@@ -23,146 +23,144 @@ class SwerveModule(
   driveId: Int,
   steerId: Int,
   canCoderID: Int,
-  CANCoderDriveStraightSteerSetPoint: Double,
+  canCoderDriveStraightSteerSetPoint: Double,
 ) {
-  private val driveMotor: TalonFX
-  private val canCoder: CANcoder
-  private val steerMotor: TalonFX
+  /** Drive motor for the swerve module */
+  private val driveMotor: TalonFX = TalonFX(driveId)
 
-  private val positionSetter: PositionVoltage
-  private val velocitySetter: VelocityTorqueCurrentFOC
+  /** CANcoder for the swerve module */
+  private val canCoder: CANcoder = CANcoder(canCoderID)
 
-  private val swerveModulePosition: SwerveModulePosition
-  private var state: SwerveModuleState
+  /** Steer motor for the swerve module */
+  private val steerMotor: TalonFX = TalonFX(steerId)
 
+  /** Position voltage control for the swerve module */
+  private val positionSetter: PositionVoltage =
+    PositionVoltage(0.0, 0.0, true, 0.0, 0, true, false, false).withSlot(0)
+
+  /** Velocity torque current FOC control for the swerve module */
+  private val velocitySetter: VelocityTorqueCurrentFOC = VelocityTorqueCurrentFOC(0.0)
+
+  /** Position of the swerve module */
+  private val swerveModulePosition: SwerveModulePosition = SwerveModulePosition()
+
+  /** State of the swerve module */
+  var state: SwerveModuleState = SwerveModuleState(0.0, Rotation2d.fromDegrees(0.0))
+    get() {
+      field.angle = Rotation2d.fromRotations(steerMotor.position.valueAsDouble)
+      field.speedMetersPerSecond =
+        (driveMotor.velocity.valueAsDouble *
+          (MotorGlobalValues.DRIVE_MOTOR_GEAR_RATIO / MotorGlobalValues.METERS_PER_REVOLUTION))
+      return field
+    }
+    set(value) {
+      val newPosition = position
+      val optimized = SwerveModuleState.optimize(value, newPosition.angle)
+
+      val angleToSet = optimized.angle.rotations
+      SmartDashboard.putNumber(
+        "desired state after optimize " + canCoder.deviceID,
+        optimized.angle.rotations,
+      )
+
+      steerMotor.setControl(positionSetter.withPosition(angleToSet))
+
+      val velocityToSet =
+        (optimized.speedMetersPerSecond *
+          (MotorGlobalValues.DRIVE_MOTOR_GEAR_RATIO / MotorGlobalValues.METERS_PER_REVOLUTION))
+      driveMotor.setControl(velocitySetter.withVelocity(velocityToSet))
+
+      field = value
+    }
+
+  /** Position of the swerve module */
+  val position: SwerveModulePosition
+    get() {
+      driveVelocity = driveMotor.velocity.valueAsDouble
+      drivePosition = driveMotor.position.valueAsDouble
+      steerVelocity = steerMotor.velocity.valueAsDouble
+      steerPosition = steerMotor.position.valueAsDouble
+
+      swerveModulePosition.angle = Rotation2d.fromRotations(steerPosition)
+      swerveModulePosition.distanceMeters =
+        (drivePosition /
+          (MotorGlobalValues.DRIVE_MOTOR_GEAR_RATIO / MotorGlobalValues.METERS_PER_REVOLUTION))
+
+      return swerveModulePosition
+    }
+
+  /** Drive velocity of the swerve module */
   private var driveVelocity: Double
+
+  /** Drive position of the swerve module */
   private var drivePosition: Double
+
+  /** Steer position of the swerve module */
   private var steerPosition: Double
+
+  /** Steer velocity of the swerve module */
   private var steerVelocity: Double
 
-  /**
-   * Constructs a new SwerveModule.
-   *
-   * @param driveId The CAN ID of the drive motor.
-   * @param steerId The CAN ID of the steer motor.
-   * @param canCoderID The CAN ID of the CANcoder.
-   * @param CANCoderDriveStraightSteerSetPoint The setpoint for the CANcoder when driving straight.
-   */
   init {
-    driveMotor = TalonFX(driveId)
-    steerMotor = TalonFX(steerId)
-    canCoder = CANcoder(canCoderID)
-
-    positionSetter = PositionVoltage(0.0, 0.0, true, 0.0, 0, true, false, false).withSlot(0)
-    velocitySetter = VelocityTorqueCurrentFOC(0.0)
-
-    swerveModulePosition = SwerveModulePosition()
     state = SwerveModuleState(0.0, Rotation2d.fromDegrees(0.0))
 
-    val driveConfigs = TalonFXConfiguration()
-    val steerConfigs = TalonFXConfiguration()
-    val canCoderConfiguration = CANcoderConfiguration()
+    /** Configuration for the drive motor */
+    val driveConfigs =
+      TalonFXConfiguration().apply {
+        Slot0.apply {
+          kP = BasePIDGlobal.DRIVE_PID.p
+          kI = BasePIDGlobal.DRIVE_PID.i
+          kD = BasePIDGlobal.DRIVE_PID.d
+        }
+        MotorOutput.apply {
+          NeutralMode = NeutralModeValue.Brake
+          Inverted = SwerveGlobalValues.DRIVE_MOTOR_INVERETED
+        }
+      }
 
-    driveConfigs.Slot0.kP = BasePIDGlobal.DRIVE_PID.p
-    driveConfigs.Slot0.kI = BasePIDGlobal.DRIVE_PID.i
-    driveConfigs.Slot0.kD = BasePIDGlobal.DRIVE_PID.d
+    /** Configuration for the steer motor */
+    val steerConfigs =
+      TalonFXConfiguration().apply {
+        Slot0.apply {
+          kP = BasePIDGlobal.STEER_PID.p
+          kI = BasePIDGlobal.STEER_PID.i
+          kD = BasePIDGlobal.STEER_PID.d
+        }
+        MotorOutput.apply {
+          NeutralMode = NeutralModeValue.Brake
+          Inverted = SwerveGlobalValues.STEER_MOTOR_INVERTED
+        }
+        Feedback.apply {
+          FeedbackRemoteSensorID = canCoderID
+          FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder
+          RotorToSensorRatio = MotorGlobalValues.STEER_MOTOR_GEAR_RATIO
+        }
+        ClosedLoopGeneral.ContinuousWrap = true
+      }
 
-    steerConfigs.Slot0.kP = BasePIDGlobal.STEER_PID.p
-    steerConfigs.Slot0.kI = BasePIDGlobal.STEER_PID.i
-    steerConfigs.Slot0.kD = BasePIDGlobal.STEER_PID.d
+    /** Configuration for the CANcoder */
+    val canCoderConfiguration =
+      CANcoderConfiguration().MagnetSensor.apply {
+        AbsoluteSensorRange = AbsoluteSensorRangeValue.Signed_PlusMinusHalf
+        SensorDirection = SensorDirectionValue.CounterClockwise_Positive
+        MagnetOffset = SwerveGlobalValues.ENCODER_OFFSET + canCoderDriveStraightSteerSetPoint
+      }
 
-    driveConfigs.MotorOutput.NeutralMode = NeutralModeValue.Brake
-    steerConfigs.MotorOutput.NeutralMode = NeutralModeValue.Brake
+    /** Apply configurations to the drive motor */
+    driveMotor.apply {
+      configurator.apply(driveConfigs)
+      driveVelocity = velocity.valueAsDouble
+      drivePosition = position.valueAsDouble
+    }
 
-    driveConfigs.MotorOutput.Inverted = SwerveGlobalValues.DRIVE_MOTOR_INVERETED
-    steerConfigs.MotorOutput.Inverted = SwerveGlobalValues.STEER_MOTOR_INVERTED
+    /** Apply configurations to the steer motor */
+    steerMotor.apply {
+      configurator.apply(steerConfigs)
+      steerVelocity = velocity.valueAsDouble
+      steerPosition = position.valueAsDouble
+    }
 
-    steerConfigs.Feedback.FeedbackRemoteSensorID = canCoderID
-    steerConfigs.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder
-    steerConfigs.Feedback.RotorToSensorRatio = MotorGlobalValues.STEER_MOTOR_GEAR_RATIO
-    steerConfigs.ClosedLoopGeneral.ContinuousWrap = true
-
-    canCoderConfiguration.MagnetSensor.AbsoluteSensorRange =
-      AbsoluteSensorRangeValue.Signed_PlusMinusHalf
-    canCoderConfiguration.MagnetSensor.SensorDirection =
-      SensorDirectionValue.CounterClockwise_Positive
-    canCoderConfiguration.MagnetSensor.MagnetOffset =
-      SwerveGlobalValues.ENCODER_OFFSET + CANCoderDriveStraightSteerSetPoint
-
-    driveMotor.configurator.apply(driveConfigs)
-    steerMotor.configurator.apply(steerConfigs)
+    /** Apply configurations to the CANcoder */
     canCoder.configurator.apply(canCoderConfiguration)
-
-    driveVelocity = driveMotor.velocity.valueAsDouble
-    drivePosition = driveMotor.position.valueAsDouble
-    steerVelocity = steerMotor.velocity.valueAsDouble
-    steerPosition = steerMotor.position.valueAsDouble
-  }
-
-  /**
-   * Gets the current position of the swerve module.
-   *
-   * @return The current position of the swerve module.
-   */
-  fun getPosition(): SwerveModulePosition {
-    driveVelocity = driveMotor.velocity.valueAsDouble
-    drivePosition = driveMotor.position.valueAsDouble
-    steerVelocity = steerMotor.velocity.valueAsDouble
-    steerPosition = steerMotor.position.valueAsDouble
-
-    swerveModulePosition.angle = Rotation2d.fromRotations(steerPosition)
-    swerveModulePosition.distanceMeters =
-      (drivePosition /
-        (MotorGlobalValues.DRIVE_MOTOR_GEAR_RATIO / MotorGlobalValues.METERS_PER_REVOLUTION))
-
-    return swerveModulePosition
-  }
-
-  /**
-   * Sets the desired state of the swerve module.
-   *
-   * @param state The desired state of the swerve module.
-   * @param motor The motor associated with the swerve module.
-   */
-  fun setState(state: SwerveModuleState) { // SwerveSubsystem.Motor motor
-    val newPosition = getPosition()
-    // SmartDashboard.putNumber("desired state before optimize " + motor.name(),
-    // state.angle.getDegrees());
-    // SmartDashboard.putNumber("voltage " + motor.name(),
-    // steerMotor.getMotorVoltage().getValueAsDouble());
-    // SmartDashboard.putNumber("Applied " + motor.name(),
-    // steerMotor.getSupplyCurrent().getValueAsDouble());
-    val optimized = SwerveModuleState.optimize(state, newPosition.angle)
-
-    val angleToSet = optimized.angle.rotations
-    SmartDashboard.putNumber(
-      "desired state after optimize " + canCoder.deviceID,
-      optimized.angle.rotations,
-    )
-
-    // SmartDashboard.putNumber("current angle " + motor.name(), steerPosition);
-    // SmartDashboard.putNumber("steer angle " + motor.name(),
-    // steerMotor.getPosition().getValueAsDouble());
-    steerMotor.setControl(positionSetter.withPosition(angleToSet))
-
-    val velocityToSet =
-      (optimized.speedMetersPerSecond *
-        (MotorGlobalValues.DRIVE_MOTOR_GEAR_RATIO / MotorGlobalValues.METERS_PER_REVOLUTION))
-    driveMotor.setControl(velocitySetter.withVelocity(velocityToSet))
-
-    this.state = state
-  }
-
-  /**
-   * Gets the current state of the swerve module.
-   *
-   * @return The current state of the swerve module.
-   */
-  fun getState(): SwerveModuleState {
-    state.angle = Rotation2d.fromRotations(steerMotor.position.valueAsDouble)
-    state.speedMetersPerSecond =
-      (driveMotor.velocity.valueAsDouble *
-        (MotorGlobalValues.DRIVE_MOTOR_GEAR_RATIO / MotorGlobalValues.METERS_PER_REVOLUTION))
-    return state
   }
 }
