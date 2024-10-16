@@ -78,28 +78,12 @@ class SwerveSubsystem(photonvision: PhotonVision?) : SubsystemBase() {
 
   /** Array of swerve module positions */
   val modulePositions: Array<SwerveModulePosition?>
-    get() {
-      val positions = arrayOfNulls<SwerveModulePosition>(states.size)
-      for (i in modules.indices) {
-        positions[i] = modules[i].position
-      }
-      return positions
-    }
+    get() = modules.map { it.position }.toTypedArray()
 
   /** Array of swerve module states */
   var moduleStates: Array<SwerveModuleState?>
-    get() {
-      val moduleStates = arrayOfNulls<SwerveModuleState>(modules.size)
-      for (i in modules.indices) {
-        moduleStates[i] = modules[i].state
-      }
-      return moduleStates
-    }
-    set(states) {
-      for (i in states.indices) {
-        modules[i].state = states[i]!!
-      }
-    }
+    get() = modules.map { it.state }.toTypedArray()
+    set(states) = states.forEachIndexed { i, state -> modules[i].state = state!! }
 
   /** Rotation of the Pigeon2 gyroscope */
   val pidgeyRotation: Rotation2d
